@@ -1,0 +1,50 @@
+env: "development"
+
+database:
+  host: localhost
+  port: "5432"
+  user: "postgres"
+  dbname: "test"
+  max_attempts: 10
+
+kafka:
+  outbox:
+    retries: 5
+    topic:
+      - "order"
+      - "metrics"
+    brokers:
+      - "localhost:9092"
+
+redis:
+  host: "localhost"
+  port: "6379"
+  password: ""
+  dbnumber: 0
+
+domain: "localhost"
+
+prometheus:
+  host: "localhost"
+  port: 8081
+  timeout: 4s
+  debug: true
+  idle_timeout: 60s
+
+http_server:
+  host: 0.0.0.0
+  port: 8080
+  timeout: 4s
+  debug: true
+  idle_timeout: 60s
+
+grpc_clients:
+  grpc_exchanger:
+    host: "localhost"
+    port: "44049"
+    timeout: 360s
+    retries: 5
+
+
+
+
