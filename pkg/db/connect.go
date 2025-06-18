@@ -2,7 +2,7 @@ package db
 
 import (
 	"context"
-	"github.com/Sanchir01/exchanger/internal/config"
+	"github.com/Sanchir01/currency-wallet/internal/config"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	"os"

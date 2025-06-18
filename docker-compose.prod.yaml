@@ -11,9 +11,9 @@ services:
     restart: always
     image: postgres:latest
     ports:
-      - "5440:5432"
+      - "5441:5432"
     environment:
-      - POSTGRES_DB=exchanger
+      - POSTGRES_DB=currency-wallet
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_USER=postgres
   redis:

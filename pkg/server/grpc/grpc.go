@@ -1,56 +1,55 @@
 package grpcapp
 
 import (
+	"github.com/Sanchir01/currency-wallet/pkg/logger"
+	walletsv1 "github.com/Sanchir01/wallets-proto/gen/go/wallets"
+	grpclog "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/logging"
+	grpcretry "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/retry"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
 	"log/slog"
-	"net"
+	"time"
 )
 
 type App struct {
-	log        *slog.Logger
-	gRPCServer *grpc.Server
-	Port       string
+	api walletsv1.ExchangeServiceClient
+	log *slog.Logger
 }
 
-func New(lg *slog.Logger, port string, gRPCServer *grpc.Server) *App {
-	return &App{
-		log:        lg,
-		gRPCServer: gRPCServer,
-		Port:       port,
+func NewClientGRPC[T any](
+	l *slog.Logger,
+	addr string,
+	timeout time.Duration,
+	retriesCount int,
+	clientFactory func(grpc.ClientConnInterface) T, // Фабрика для конкретного клиента
+) (T, error) {
+	const op = "grpc.client.new"
+
+	retryOpts := []grpcretry.CallOption{
+		grpcretry.WithBackoff(grpcretry.BackoffLinear(500 * time.Millisecond)),
+		grpcretry.WithCodes(codes.Aborted, codes.Unavailable, codes.NotFound, codes.DeadlineExceeded),
+		grpcretry.WithPerRetryTimeout(timeout),
+		grpcretry.WithMax(uint(retriesCount)),
 	}
-}
 
-func (a *App) MustRun() {
-	if err := a.Start(); err != nil {
-		panic(err)
+	logOpts := []grpclog.Option{
+		grpclog.WithLogOnEvents(grpclog.PayloadReceived, grpclog.PayloadSent),
 	}
-}
 
-func GetGrpcServer() *grpc.Server {
-	srv := grpc.NewServer(
-		grpc.UnaryInterceptor(RecoveryInterceptor),
+	cc, err := grpc.NewClient(addr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithChainUnaryInterceptor(
+			grpcretry.UnaryClientInterceptor(retryOpts...),
+			grpclog.UnaryClientInterceptor(logger.InterceptorsLogger(l), logOpts...),
+		),
 	)
-	return srv
-}
-func (a *App) Start() error {
-	const op = "grpcapp.App.Start"
-	log := a.log.With(slog.String("op", op), "Starting gRPC server", "port", a.Port)
-	l, err := net.Listen("tcp", a.Port)
 	if err != nil {
-		log.Error("Failed to start gRPC server", "error", err)
-		return err
+		var zero T
+		return zero, err
 	}
-	log.Info("gRPC server started", "address", l.Addr().String())
-	if err := a.gRPCServer.Serve(l); err != nil {
-		a.log.Error("Failed to start gRPC server", "error", err)
-		return err
-	}
-	return nil
-}
 
-func (a *App) Stop() {
-	const op = "grpcapp.App.Stop"
-	log := a.log.With(slog.String("op", op), "Stopping gRPC server")
-	a.gRPCServer.GracefulStop()
-	log.Info("gRPC server stopped")
+	client := clientFactory(cc)
+
+	return client, nil
 }

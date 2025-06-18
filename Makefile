@@ -7,7 +7,7 @@ MIGRATION_NAME ?= new_migration
 
 DB_CONN_PROD = host=$(DB_HOST_PROD) user=$(DB_USER_PROD) password=$(DB_PASSWORD_PROD) port=$(DB_PORT_PROD) dbname=$(DB_NAME_PROD) sslmode=disable
 
-DB_CONN_DEV ="host=localhost user=postgres password=postgres port=5440 dbname=exchanger sslmode=disable"
+DB_CONN_DEV ="host=localhost user=postgres password=postgres port=5441 dbname=currency-wallet sslmode=disable"
 
 FOLDER_PG= migrations/pg
 
@@ -15,6 +15,8 @@ build:
 	go build -o ./.bin/main ./cmd/main/main.go
 run: build
 	ENV_FILE=".env.prod" ./.bin/main
+swag:
+	swag init -g cmd/main/main.go
 
 migrations-up:
 	goose -dir $(FOLDER_PG) postgres $(DB_CONN_DEV)   up

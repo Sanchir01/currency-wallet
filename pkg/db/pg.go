@@ -3,8 +3,8 @@ package db
 import (
 	"context"
 	"fmt"
-	"github.com/Sanchir01/exchanger/internal/config"
-	"github.com/Sanchir01/exchanger/pkg/utils"
+	"github.com/Sanchir01/currency-wallet/internal/config"
+	"github.com/Sanchir01/currency-wallet/pkg/utils"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"log"
 	"os"
@@ -18,7 +18,7 @@ func PGXNew(cfg *config.Config, ctx context.Context) (*pgxpool.Pool, error) {
 	switch cfg.Env {
 	case "development":
 		dsn = fmt.Sprintf(
-			"postgres://postgres:postgres@localhost:5440/exchanger?sslmode=disable",
+			"postgres://postgres:postgres@localhost:5441/currency-wallet?sslmode=disable",
 		)
 	case "production":
 		dsn = fmt.Sprintf(
