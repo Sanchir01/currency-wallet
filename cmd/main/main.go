@@ -15,15 +15,19 @@ import (
 
 // @title 🚀 Currency Wallet
 // @version         1.0
-// @description This is a sample server celler
+// @description This is a sample server seller
 // @termsOfService  http://swagger.io/terms/
 
 // @host localhost:8080
 // @BasePath /api/v1
 
-// @securityDefinitions.apikey ApiKeyAuth
-// @in header
-// @name Authorization
+// @securityDefinitions.apikey AccessTokenCookie
+// @in cookie
+// @name accessToken
+
+// @securityDefinitions.apikey RefreshTokenCookie
+// @in cookie
+// @name refreshToken
 
 // @contact.name GitHub
 // @contact.url https://github.com/Sanchir01
@@ -41,7 +45,7 @@ func main() {
 		env.Cfg.Prometheus.IdleTimeout)
 
 	go func() {
-		if err := serve.Run(httphandlers.StartHTTTPHandlers(env.Handlers, env.Cfg.Domain)); err != nil {
+		if err := serve.Run(httphandlers.StartHTTTPHandlers(env.Handlers, env.Cfg.Domain, env.Lg)); err != nil {
 			if !errors.Is(err, context.Canceled) {
 				env.Lg.Error("Listen server error", slog.String("error", err.Error()))
 				return

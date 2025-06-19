@@ -3,30 +3,36 @@ package httphandlers
 import (
 	_ "github.com/Sanchir01/currency-wallet/docs"
 	"github.com/Sanchir01/currency-wallet/internal/app"
+	"github.com/Sanchir01/currency-wallet/pkg/logger"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	httpSwagger "github.com/swaggo/http-swagger/v2"
+	"log/slog"
 	"net/http"
 )
 
-func StartHTTTPHandlers(handlers *app.Handlers, domain string) http.Handler {
+func StartHTTTPHandlers(handlers *app.Handlers, domain string, l *slog.Logger) http.Handler {
 	router := chi.NewRouter()
-	custommiddleware(router, domain)
+	custommiddleware(router, l)
 	router.Route("/api/v1", func(r chi.Router) {
-		r.Get("/register", handlers.UserHandler.Register)
+		r.Post("/register", handlers.UserHandler.RegisterHandler)
+		r.Post("/login", handlers.UserHandler.LoginHandler)
+		r.Group(func(r chi.Router) {
+			AuthMiddleware(domain)
+			r.Get("/exchange/rates", handlers.WalletHandler.GetAllCurrency)
+		})
 	})
 	router.Get("/swagger/*", httpSwagger.Handler(
 		httpSwagger.URL("/swagger/doc.json"),
 	))
 	return router
 }
-func custommiddleware(router *chi.Mux, domain string) {
+func custommiddleware(router *chi.Mux, l *slog.Logger) {
 	router.Use(middleware.RequestID, middleware.Recoverer)
 	router.Use(middleware.RealIP)
-	router.Use(middleware.Logger)
+	router.Use(logger.NewMiddlewareLogger(l))
 	router.Use(PrometheusMiddleware)
-	router.Use(AuthMiddleware(domain))
 }
 func StartPrometheusHandlers() http.Handler {
 	router := chi.NewRouter()

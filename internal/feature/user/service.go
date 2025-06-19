@@ -3,6 +3,7 @@ package user
 import (
 	"context"
 	"errors"
+	"github.com/Sanchir01/currency-wallet/pkg/utils"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -17,6 +18,8 @@ type Service struct {
 
 type ServiceUser interface {
 	CreateUser(ctx context.Context, email, username string, password []byte, tx pgx.Tx) (*uuid.UUID, error)
+	GetUserByID(ctx context.Context, id uuid.UUID) (*DatabaseUser, error)
+	GetUserByEmail(ctx context.Context, email string) (*DatabaseUser, error)
 }
 
 func NewService(r ServiceUser, db *pgxpool.Pool, l *slog.Logger) *Service {
@@ -67,5 +70,22 @@ func (s *Service) Register(ctx context.Context, email, username, password string
 		log.Error("tx commit error", err.Error())
 	}
 	log.Info("user created success", user.String())
+	return user, nil
+}
+
+func (s *Service) Login(ctx context.Context, email, password string) (*DatabaseUser, error) {
+	const op = "User.Service.Login"
+	log := s.log.With(slog.String("op", op))
+	user, err := s.repository.GetUserByEmail(ctx, email)
+	if err != nil {
+		log.Error("error getting user by email", err.Error())
+		return nil, err
+	}
+	ok := VerifyPassword(user.Password, password)
+	if !ok {
+		log.Error("invalid password")
+		return nil, utils.ErrorInvalidPassword
+	}
+	log.Info("user service logged in user")
 	return user, nil
 }

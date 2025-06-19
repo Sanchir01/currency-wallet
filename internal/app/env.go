@@ -2,9 +2,12 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"github.com/Sanchir01/currency-wallet/internal/config"
 	"github.com/Sanchir01/currency-wallet/pkg/db"
 	"github.com/Sanchir01/currency-wallet/pkg/logger"
+	grpcapp "github.com/Sanchir01/currency-wallet/pkg/server/grpc"
+	walletsv1 "github.com/Sanchir01/wallets-proto/gen/go/wallets"
 	"log/slog"
 )
 
@@ -22,9 +25,19 @@ func NewApp(ctx context.Context) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
+	echangergrpcurl := fmt.Sprintf("%s:%s", cfg.GrpcClients.GRPCExchanger.Host, cfg.GrpcClients.GRPCExchanger.Port)
+	exchanger, err := grpcapp.NewClientGRPC(
+		l,
+		echangergrpcurl,
+		cfg.GrpcClients.GRPCExchanger.Timeout,
+		cfg.GrpcClients.GRPCExchanger.Retries,
+		walletsv1.NewExchangeServiceClient,
+	)
+
 	repo := NewRepository(database)
-	srv := NewServices(repo, database, l)
+	srv := NewServices(repo, database, l, exchanger)
 	handlers := NewHandlers(srv, l)
+
 	return &App{
 		Cfg:      cfg,
 		Lg:       l,

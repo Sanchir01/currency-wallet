@@ -55,14 +55,14 @@ type GrpcOrder struct {
 	Timeout int `yaml:"timeout"`
 	Port    int `yaml:"port"`
 }
-type GRPCAuth struct {
+type GRPCExchanger struct {
 	Host    string        `yaml:"host"`
 	Port    string        `yaml:"port"`
 	Timeout time.Duration `yaml:"timeout"`
 	Retries int           `yaml:"retries"`
 }
 type GRPCClients struct {
-	GRPCAuth GRPCAuth `yaml:"grpc_exchanger"`
+	GRPCExchanger GRPCExchanger `yaml:"grpc_exchanger"`
 }
 type S3Store struct {
 	Key        string `yaml:"key"`

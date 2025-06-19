@@ -22,7 +22,7 @@ func NewClientGRPC[T any](
 	addr string,
 	timeout time.Duration,
 	retriesCount int,
-	clientFactory func(grpc.ClientConnInterface) T, // Фабрика для конкретного клиента
+	clientFactory func(grpc.ClientConnInterface) T,
 ) (T, error) {
 	const op = "grpc.client.new"
 

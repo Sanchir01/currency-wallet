@@ -28,7 +28,7 @@ func (r *Repository) GetUserByEmail(ctx context.Context, email string) (*Databas
 	defer conn.Release()
 
 	query, arg, err := sq.
-		Select("id, email, version").
+		Select("id, email,username, version,password").
 		From("public.users").
 		Where(sq.Eq{"email": email}).
 		PlaceholderFormat(sq.Dollar).
@@ -37,7 +37,10 @@ func (r *Repository) GetUserByEmail(ctx context.Context, email string) (*Databas
 		return nil, err
 	}
 	var userDB DatabaseUser
-	if err := conn.QueryRow(ctx, query, arg...).Scan(&userDB.ID, &userDB.Email, &userDB.Version); err != nil {
+	if err := conn.QueryRow(ctx, query, arg...).Scan(&userDB.ID, &userDB.Email, &userDB.Name, &userDB.Version, &userDB.Password); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, utils.ErrorUserNotFound
+		}
 		return nil, err
 	}
 	return &userDB, nil
