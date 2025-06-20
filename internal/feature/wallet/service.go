@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/Sanchir01/currency-wallet/internal/domain/contants"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -19,7 +20,22 @@ import (
 
 type ServiceWallets interface {
 	Balance(ctx context.Context, id uuid.UUID) (*models.CurrencyWallet, error)
-	DepositOrWithdrawBalance(ctx context.Context, id uuid.UUID, amount float32, currency string, tx pgx.Tx, typedepo contextkey.OperationType) (*models.CurrencyWallet, error)
+	DepositOrWithdrawBalance(
+		ctx context.Context,
+		id uuid.UUID,
+		amount float32,
+		currency string,
+		tx pgx.Tx,
+		typedepo contextkey.OperationType,
+	) (*models.CurrencyWalletDB, error)
+	SetTransaction(
+		ctx context.Context,
+		walletID uuid.UUID,
+		amount float32,
+		typetransaction contextkey.OperationType,
+		senderID *uuid.UUID,
+		tx pgx.Tx,
+	) error
 }
 type Service struct {
 	repository ServiceWallets
@@ -92,6 +108,17 @@ func (s *Service) GetCurrencyWallets(ctx context.Context) (*models.CurrencyWalle
 	return &models.CurrencyWallet{Balances: balances}, nil
 }
 
+func (s *Service) GetExchangeRateForCurrency(ctx context.Context, to_currency, from_currency string) (*walletsv1.ExchangeRateResponse, error) {
+	const op = "Wallet.Service.GetExchangeRateForCurrency"
+	log := s.log.With(slog.String("op", op))
+	data, err := s.exchanger.GetExchangeRateForCurrency(ctx, &walletsv1.CurrencyRequest{ToCurrency: to_currency, FromCurrency: from_currency})
+	if err != nil {
+		log.Error("failed to get exchange rates", slog.String("error", err.Error()))
+		return nil, err
+	}
+	return data, nil
+}
+
 func (s *Service) GetBalance(ctx context.Context, id uuid.UUID) (*models.CurrencyWallet, error) {
 	const op = "Wallet.Service.GetBalance"
 	log := s.log.With(slog.String("op", op))
@@ -136,10 +163,59 @@ func (s *Service) WalletDepositOrWithDraw(ctx context.Context, id uuid.UUID, cur
 		log.Error("failed to deposit balance", slog.String("error", err.Error()))
 		return nil, err
 	}
+	if err := s.repository.SetTransaction(ctx, data.WalletID, amount, typedepo, nil, tx); err != nil {
+		log.Error("failed to set balance", slog.String("error", err.Error()))
+		return nil, err
+	}
 	if err := tx.Commit(ctx); err != nil {
 		log.Error("failed to commit transaction", slog.String("error", err.Error()))
 		return nil, err
 	}
+
 	log.Info("getting balance for currency")
-	return data, nil
+	return &models.CurrencyWallet{Balances: data.Balances}, nil
+}
+
+func (s *Service) CurrencyExchangeWallet(ctx context.Context, userid uuid.UUID, to_currency, from_currency string, to_currency_amount, from_currency_amount float32) (*models.CurrencyWallet, error) {
+	const op = "Wallet.Service.CurrencyExchangeWallet"
+	log := s.log.With(slog.String("op", op))
+	conn, err := s.primaryDB.Acquire(ctx)
+	if err != nil {
+
+		return nil, err
+	}
+	defer conn.Release()
+	tx, err := conn.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		log.Error("tx error", err.Error())
+		return nil, err
+	}
+
+	defer func() {
+		if err != nil {
+			rollbackErr := tx.Rollback(ctx)
+			if rollbackErr != nil {
+				err = errors.Join(err, rollbackErr)
+				log.Error("rollback error", rollbackErr.Error())
+				return
+			}
+		}
+
+	}()
+	depositdata, err := s.repository.DepositOrWithdrawBalance(ctx, userid, to_currency_amount, to_currency, tx, contextkey.OperationTypeDeposit)
+	if err != nil {
+		log.Error("failed to deposit balance", slog.String("error", err.Error()))
+		return nil, fmt.Errorf("не хватает баланса")
+	}
+	_, err = s.repository.DepositOrWithdrawBalance(ctx, userid, from_currency_amount, from_currency, tx, contextkey.OperationTypeWithdraw)
+	if err != nil {
+		log.Error("failed to withdraw balance", slog.String("error", err.Error()))
+		return nil, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		log.Error("failed to commit transaction", slog.String("error", err.Error()))
+		return nil, err
+	}
+	return &depositdata.CurrencyWallet, err
 }

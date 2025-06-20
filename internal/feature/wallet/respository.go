@@ -87,33 +87,41 @@ func (r *Repository) CreateManyWallets(ctx context.Context, userID uuid.UUID, tx
 	return nil
 }
 
-func (r *Repository) DepositOrWithdrawBalance(ctx context.Context, id uuid.UUID, amount float32, currency string, tx pgx.Tx, typedepo contextkey.OperationType) (*models.CurrencyWallet, error) {
+func (r *Repository) DepositOrWithdrawBalance(
+	ctx context.Context,
+	id uuid.UUID,
+	amount float32,
+	currency string,
+	tx pgx.Tx,
+	typedepo contextkey.OperationType,
+) (*models.CurrencyWalletDB, error) {
 	var query string
 	r.log.Warn("depo props", amount)
+
 	if typedepo == contextkey.OperationTypeWithdraw {
 		query = `
-	WITH updated_wallet AS (
-		UPDATE wallets
-		SET balance = balance - $1
-		WHERE user_id = $2 AND currency = $3 AND balance >= $1
-		RETURNING user_id
-	)
-	SELECT w.currency, w.balance
-	FROM wallets w
-	JOIN updated_wallet uw ON w.user_id = uw.user_id;
-	`
+		WITH updated_wallet AS (
+			UPDATE wallets
+			SET balance = balance - $1
+			WHERE user_id = $2 AND currency = $3 AND balance >= $1
+			RETURNING id, user_id
+		)
+		SELECT w.id, w.currency, w.balance
+		FROM wallets w
+		JOIN updated_wallet uw ON w.user_id = uw.user_id;
+		`
 	} else {
 		query = `
-	WITH updated_wallet AS (
-    UPDATE wallets
-    SET balance = balance + $1
-    WHERE user_id = $2 AND currency = $3 
-    RETURNING user_id
-	)
-	SELECT w.currency, w.balance
-	FROM wallets w
-	JOIN updated_wallet uw ON w.user_id = uw.user_id;
-	`
+		WITH updated_wallet AS (
+			UPDATE wallets
+			SET balance = balance + $1
+			WHERE user_id = $2 AND currency = $3
+			RETURNING id, user_id
+		)
+		SELECT w.id, w.currency, w.balance
+		FROM wallets w
+		JOIN updated_wallet uw ON w.user_id = uw.user_id;
+		`
 	}
 
 	args := []interface{}{amount, id, currency}
@@ -125,21 +133,62 @@ func (r *Repository) DepositOrWithdrawBalance(ctx context.Context, id uuid.UUID,
 	defer rows.Close()
 
 	balances := make(map[string]float32)
+	var walletID uuid.UUID
+	first := true
 
 	for rows.Next() {
 		var currency string
 		var balance float32
-		if err := rows.Scan(&currency, &balance); err != nil {
+		var currentWalletID uuid.UUID
+
+		if err := rows.Scan(&currentWalletID, &currency, &balance); err != nil {
 			return nil, err
 		}
 		balances[currency] = balance
+
+		if first {
+			walletID = currentWalletID
+			first = false
+		}
 	}
 
 	if len(balances) == 0 {
 		return nil, errors.New("insufficient funds or wallet not found")
 	}
 
-	return &models.CurrencyWallet{
-		Balances: balances,
+	return &models.CurrencyWalletDB{
+		WalletID: walletID,
+		CurrencyWallet: models.CurrencyWallet{
+			Balances: balances,
+		},
 	}, nil
+}
+
+func (r *Repository) SetTransaction(ctx context.Context, walletID uuid.UUID,
+	amount float32,
+	typetransaction contextkey.OperationType,
+	senderID *uuid.UUID,
+	tx pgx.Tx) error {
+	queryBuilder := sq.Insert("transactions").
+		Columns("wallet_id", "amount", "type").
+		Values(walletID, amount, typetransaction).
+		PlaceholderFormat(sq.Dollar)
+
+	if senderID != nil {
+		queryBuilder = sq.Insert("transactions").
+			Columns("wallet_id", "amount", "type", "sender_wallet_id").
+			Values(walletID, amount, typetransaction, *senderID).
+			PlaceholderFormat(sq.Dollar)
+	}
+
+	query, args, err := queryBuilder.ToSql()
+	if err != nil {
+		return utils.ErrorQueryString
+	}
+
+	if _, err = tx.Exec(ctx, query, args...); err != nil {
+		return err
+	}
+
+	return nil
 }

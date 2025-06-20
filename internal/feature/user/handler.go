@@ -35,7 +35,7 @@ func NewHandler(s HandlerUser, lg *slog.Logger) *Handler {
 }
 
 // @Summary Auth
-// @Tags user
+// @Tags auth
 // @Description register user
 // @Accept json
 // @Produce json
@@ -91,11 +91,11 @@ func (h *Handler) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary Login
-// @Tags user
+// @Tags auth
 // @Description login user
 // @Accept json
 // @Produce json
-// @Param input body AuthRequest true "auth body"
+// @Param input body LoginRequest true "auth body"
 // @Success 200 {object}  LoginResponse
 // @Failure 400,404 {object}  api.Response
 // @Failure 500 {object}  api.Response

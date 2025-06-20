@@ -7,22 +7,6 @@ definitions:
       status:
         type: string
     type: object
-  user.AuthRequest:
-    properties:
-      email:
-        type: string
-      password:
-        minLength: 6
-        type: string
-      username:
-        maxLength: 100
-        minLength: 1
-        type: string
-    required:
-    - email
-    - password
-    - username
-    type: object
   user.AuthResponse:
     properties:
       error:
@@ -58,6 +42,27 @@ definitions:
           type: number
         type: object
     type: object
+  wallet.DepositOrWithdrawRequest:
+    properties:
+      amount:
+        type: number
+      currency:
+        type: string
+    required:
+    - amount
+    - currency
+    type: object
+  wallet.DepositOrWithdrawResponse:
+    properties:
+      balances:
+        additionalProperties:
+          type: number
+        type: object
+      error:
+        type: string
+      status:
+        type: string
+    type: object
 host: localhost:8080
 info:
   contact:
@@ -68,11 +73,11 @@ info:
   title: "\U0001F680 Currency Wallet"
   version: "1.0"
 paths:
-  /exchanger:
+  /balance:
     get:
       consumes:
       - application/json
-      description: register user
+      description: balance user
       produces:
       - application/json
       responses:
@@ -94,7 +99,72 @@ paths:
             $ref: '#/definitions/api.Response'
       security:
       - refreshToken: []
-      summary: Auth
+      summary: GetBalanceHandler
+      tags:
+      - wallet
+  /deposit:
+    post:
+      consumes:
+      - application/json
+      description: balance user
+      parameters:
+      - description: deposit body
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/wallet.DepositOrWithdrawRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/wallet.DepositOrWithdrawResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - refreshToken: []
+      summary: GetBalanceHandler
+      tags:
+      - wallet
+  /exchanger/rates:
+    get:
+      consumes:
+      - application/json
+      description: all currency wallet
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/wallet.CurrencyWalletResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - refreshToken: []
+      summary: GetAllCurrencyHandler
       tags:
       - wallet
   /login:
@@ -108,7 +178,7 @@ paths:
         name: input
         required: true
         schema:
-          $ref: '#/definitions/user.AuthRequest'
+          $ref: '#/definitions/user.LoginRequest'
       produces:
       - application/json
       responses:
@@ -130,7 +200,7 @@ paths:
             $ref: '#/definitions/api.Response'
       summary: Login
       tags:
-      - user
+      - auth
   /register:
     post:
       consumes:
@@ -146,8 +216,8 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
-          description: OK
+        "201":
+          description: Created
           schema:
             $ref: '#/definitions/user.AuthResponse'
         "400":
@@ -164,7 +234,43 @@ paths:
             $ref: '#/definitions/api.Response'
       summary: Auth
       tags:
-      - user
+      - auth
+  /withdraw:
+    post:
+      consumes:
+      - application/json
+      description: balance user
+      parameters:
+      - description: deposit body
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/wallet.DepositOrWithdrawRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/wallet.DepositOrWithdrawResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - refreshToken: []
+      summary: WithdrawWallet
+      tags:
+      - wallet
 securityDefinitions:
   AccessTokenCookie:
     in: cookie

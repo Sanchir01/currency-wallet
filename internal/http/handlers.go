@@ -25,6 +25,7 @@ func StartHTTTPHandlers(handlers *app.Handlers, domain string, l *slog.Logger) h
 			r.Get("/balance", handlers.WalletHandler.GetBalanceHandler)
 			r.Post("/deposit", handlers.WalletHandler.DepositWallet)
 			r.Post("/withdraw", handlers.WalletHandler.WithdrawWallet)
+			r.Post("/exchange", handlers.WalletHandler.ExchangeWallet)
 		})
 	})
 	router.Get("/swagger/*", httpSwagger.Handler(
