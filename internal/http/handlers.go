@@ -3,6 +3,7 @@ package httphandlers
 import (
 	_ "github.com/Sanchir01/currency-wallet/docs"
 	"github.com/Sanchir01/currency-wallet/internal/app"
+	"github.com/Sanchir01/currency-wallet/internal/http/customiddleware"
 	"github.com/Sanchir01/currency-wallet/pkg/logger"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -19,8 +20,11 @@ func StartHTTTPHandlers(handlers *app.Handlers, domain string, l *slog.Logger) h
 		r.Post("/register", handlers.UserHandler.RegisterHandler)
 		r.Post("/login", handlers.UserHandler.LoginHandler)
 		r.Group(func(r chi.Router) {
-			AuthMiddleware(domain)
-			r.Get("/exchange/rates", handlers.WalletHandler.GetAllCurrency)
+			r.Use(customiddleware.AuthMiddleware(domain))
+			r.Get("/exchange/rates", handlers.WalletHandler.GetAllCurrencyHandler)
+			r.Get("/balance", handlers.WalletHandler.GetBalanceHandler)
+			r.Post("/deposit", handlers.WalletHandler.DepositWallet)
+			r.Post("/withdraw", handlers.WalletHandler.WithdrawWallet)
 		})
 	})
 	router.Get("/swagger/*", httpSwagger.Handler(
@@ -32,7 +36,7 @@ func custommiddleware(router *chi.Mux, l *slog.Logger) {
 	router.Use(middleware.RequestID, middleware.Recoverer)
 	router.Use(middleware.RealIP)
 	router.Use(logger.NewMiddlewareLogger(l))
-	router.Use(PrometheusMiddleware)
+	router.Use(customiddleware.PrometheusMiddleware)
 }
 func StartPrometheusHandlers() http.Handler {
 	router := chi.NewRouter()

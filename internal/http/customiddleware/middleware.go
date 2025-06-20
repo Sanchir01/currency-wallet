@@ -1,8 +1,9 @@
-package httphandlers
+package customiddleware
 
 import (
 	"context"
-	contextkey "github.com/Sanchir01/currency-wallet/internal/contants"
+	"errors"
+	"github.com/Sanchir01/currency-wallet/internal/domain/contants"
 	"github.com/Sanchir01/currency-wallet/internal/feature/user"
 	"github.com/prometheus/client_golang/prometheus"
 	"log/slog"
@@ -37,14 +38,12 @@ var requesDuration = prometheus.NewHistogramVec(
 	[]string{"method", "path"},
 )
 
-func WithResponseWriter(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx := context.WithValue(r.Context(), responseWriterKey, w)
-		next.ServeHTTP(w, r.WithContext(ctx))
-	})
-}
-func GetResponseWriter(ctx context.Context) http.ResponseWriter {
-	return ctx.Value(responseWriterKey).(http.ResponseWriter)
+func GetJWTClaimsFromCtx(ctx context.Context) (*user.Claims, error) {
+	claims, ok := ctx.Value(contextkey.UserIDCtxKey).(*user.Claims)
+	if !ok {
+		return nil, errors.New("no JWT claims found in context")
+	}
+	return claims, nil
 }
 
 func AuthMiddleware(domain string) func(http.Handler) http.Handler {

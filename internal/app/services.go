@@ -15,7 +15,7 @@ type Services struct {
 
 func NewServices(repos *Repository, db *db.Database, l *slog.Logger, exchanger walletsv1.ExchangeServiceClient) *Services {
 	return &Services{
-		UserService:   user.NewService(repos.UserRepository, db.PrimaryDB, l),
-		WalletService: wallet.NewService(repos.WalletRepository, db.RedisDB, exchanger, l),
+		UserService:   user.NewService(repos.UserRepository, repos.WalletRepository, db.PrimaryDB, l),
+		WalletService: wallet.NewService(repos.WalletRepository, db.PrimaryDB, db.RedisDB, exchanger, l),
 	}
 }

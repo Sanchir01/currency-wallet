@@ -11,22 +11,27 @@ import (
 )
 
 type Service struct {
-	repository ServiceUser
-	log        *slog.Logger
-	primaryDB  *pgxpool.Pool
+	repository    ServiceUser
+	walletservice ServiceWallet
+	log           *slog.Logger
+	primaryDB     *pgxpool.Pool
 }
 
+type ServiceWallet interface {
+	CreateManyWallets(ctx context.Context, userID uuid.UUID, tx pgx.Tx) error
+}
 type ServiceUser interface {
 	CreateUser(ctx context.Context, email, username string, password []byte, tx pgx.Tx) (*uuid.UUID, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (*DatabaseUser, error)
 	GetUserByEmail(ctx context.Context, email string) (*DatabaseUser, error)
 }
 
-func NewService(r ServiceUser, db *pgxpool.Pool, l *slog.Logger) *Service {
+func NewService(r ServiceUser, walletservice ServiceWallet, db *pgxpool.Pool, l *slog.Logger) *Service {
 	return &Service{
-		repository: r,
-		primaryDB:  db,
-		log:        l,
+		repository:    r,
+		primaryDB:     db,
+		log:           l,
+		walletservice: walletservice,
 	}
 }
 
@@ -64,6 +69,10 @@ func (s *Service) Register(ctx context.Context, email, username, password string
 	user, err := s.repository.CreateUser(ctx, email, username, hashedPassword, tx)
 	if err != nil {
 		log.Error("error creating user", err.Error())
+		return nil, err
+	}
+	if err := s.walletservice.CreateManyWallets(ctx, *user, tx); err != nil {
+		log.Error("error creating wallets", err.Error())
 		return nil, err
 	}
 	if err := tx.Commit(ctx); err != nil {

@@ -34,7 +34,7 @@ func NewApp(ctx context.Context) (*App, error) {
 		walletsv1.NewExchangeServiceClient,
 	)
 
-	repo := NewRepository(database)
+	repo := NewRepository(database, l)
 	srv := NewServices(repo, database, l, exchanger)
 	handlers := NewHandlers(srv, l)
 

@@ -16,26 +16,6 @@ import (
 	"github.com/go-chi/render"
 )
 
-type AuthRequest struct {
-	Email    string `json:"email" validate:"required"`
-	Username string `json:"username" validate:"required,min=1,max=100"`
-	Password string `json:"password" validate:"required,min=6"`
-}
-
-type AuthResponse struct {
-	api.Response
-}
-
-type LoginRequest struct {
-	Email    string `json:"email" validate:"required"`
-	Password string `json:"password" validate:"required"`
-}
-
-type LoginResponse struct {
-	api.Response
-	Email    string `json:"email"`
-	Username string `json:"username" `
-}
 type Handler struct {
 	Service HandlerUser
 	log     *slog.Logger
@@ -60,7 +40,7 @@ func NewHandler(s HandlerUser, lg *slog.Logger) *Handler {
 // @Accept json
 // @Produce json
 // @Param input body LoginRequest true "login body"
-// @Success 200 {object}  AuthResponse
+// @Success 201 {object}  AuthResponse
 // @Failure 400,404 {object}  api.Response
 // @Failure 500 {object}  api.Response
 // @Router /register [post]
@@ -104,6 +84,7 @@ func (h *Handler) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		render.JSON(w, r, api.Error("failed to register cookie"))
 		return
 	}
+	render.Status(r, http.StatusCreated)
 	render.JSON(w, r, AuthResponse{
 		Response: api.OK(),
 	})
