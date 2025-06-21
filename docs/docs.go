@@ -122,6 +122,63 @@ const docTemplate = `{
                 }
             }
         },
+        "/exchange": {
+            "post": {
+                "security": [
+                    {
+                        "refreshToken": []
+                    }
+                ],
+                "description": "balance user",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "wallet"
+                ],
+                "summary": "GetBalanceHandler",
+                "parameters": [
+                    {
+                        "description": "deposit body",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/wallet.ExchangeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/wallet.DepositOrWithdrawResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/exchanger/rates": {
             "get": {
                 "security": [
@@ -292,7 +349,7 @@ const docTemplate = `{
                 "summary": "WithdrawWallet",
                 "parameters": [
                     {
-                        "description": "deposit body",
+                        "description": "withdraw body",
                         "name": "input",
                         "in": "body",
                         "required": true,
@@ -427,6 +484,25 @@ const docTemplate = `{
                     "type": "string"
                 }
             }
+        },
+        "wallet.ExchangeRequest": {
+            "type": "object",
+            "required": [
+                "amount",
+                "from_currency",
+                "to_currency"
+            ],
+            "properties": {
+                "amount": {
+                    "type": "number"
+                },
+                "from_currency": {
+                    "type": "string"
+                },
+                "to_currency": {
+                    "type": "string"
+                }
+            }
         }
     },
     "securityDefinitions": {
@@ -446,7 +522,7 @@ const docTemplate = `{
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
 	Version:          "1.0",
-	Host:             "localhost:8080",
+	Host:             "localhost:5000",
 	BasePath:         "/api/v1",
 	Schemes:          []string{},
 	Title:            "🚀 Currency Wallet",

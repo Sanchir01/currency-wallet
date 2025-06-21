@@ -37,26 +37,28 @@ type ServiceWallets interface {
 		tx pgx.Tx,
 	) error
 }
+
+type ServiceEvents interface {
+	CreateEvent(ctx context.Context, eventType, payload string, tx pgx.Tx) (uuid.UUID, error)
+}
 type Service struct {
 	repository ServiceWallets
+	events     ServiceEvents
 	exchanger  walletsv1.ExchangeServiceClient
 	redisdb    *redis.Client
 	primaryDB  *pgxpool.Pool
 	log        *slog.Logger
 }
 
-func NewService(r ServiceWallets, primaryDB *pgxpool.Pool, redisdb *redis.Client, exchanger walletsv1.ExchangeServiceClient, log *slog.Logger) *Service {
+func NewService(r ServiceWallets, events ServiceEvents, primaryDB *pgxpool.Pool, redisdb *redis.Client, exchanger walletsv1.ExchangeServiceClient, log *slog.Logger) *Service {
 	return &Service{
 		repository: r,
 		exchanger:  exchanger,
 		redisdb:    redisdb,
 		log:        log,
 		primaryDB:  primaryDB,
+		events:     events,
 	}
-}
-
-type DefaultRedis struct {
-	Rates map[string]float64 `json:"rates"`
 }
 
 func (s *Service) GetCurrencyWallets(ctx context.Context) (*models.CurrencyWallet, error) {
@@ -76,8 +78,6 @@ func (s *Service) GetCurrencyWallets(ctx context.Context) (*models.CurrencyWalle
 			log.Error("failed to get exchange rates", slog.String("error", err.Error()))
 			return nil, err
 		}
-
-		log.Debug("received exchange rates", slog.Any("rates", exchangerdata.Rates))
 
 		data, err := json.Marshal(exchangerdata.Rates)
 		if err != nil {
@@ -108,15 +108,49 @@ func (s *Service) GetCurrencyWallets(ctx context.Context) (*models.CurrencyWalle
 	return &models.CurrencyWallet{Balances: balances}, nil
 }
 
-func (s *Service) GetExchangeRateForCurrency(ctx context.Context, to_currency, from_currency string) (*walletsv1.ExchangeRateResponse, error) {
+func (s *Service) GetExchangeRateForCurrency(ctx context.Context, to_currency, from_currency string) (*ExchangeRateToCurrency, error) {
 	const op = "Wallet.Service.GetExchangeRateForCurrency"
+
 	log := s.log.With(slog.String("op", op))
-	data, err := s.exchanger.GetExchangeRateForCurrency(ctx, &walletsv1.CurrencyRequest{ToCurrency: to_currency, FromCurrency: from_currency})
+	exchangerrate, err := s.redisdb.Get(ctx, contextkey.ExchangeRateToCurrencyCtxKey).Bytes()
 	if err != nil {
-		log.Error("failed to get exchange rates", slog.String("error", err.Error()))
+		if err == redis.Nil {
+			log.Info("cache miss (key not found), fetching from exchanger")
+		} else {
+			log.Error("redis error", slog.String("error", err.Error()))
+		}
+
+		exchangerdata, err := s.exchanger.GetExchangeRateForCurrency(ctx, &walletsv1.CurrencyRequest{ToCurrency: to_currency, FromCurrency: from_currency})
+
+		if err != nil {
+			log.Error("failed to get exchange rates", slog.String("error", err.Error()))
+			return nil, err
+		}
+
+		data, err := json.Marshal(exchangerdata)
+		if err != nil {
+			log.Error("failed to marshal rates", slog.String("error", err.Error()))
+			return nil, err
+		}
+
+		if err := s.redisdb.Set(ctx, contextkey.ExchangeRateToCurrencyCtxKey, data, 5*time.Second).Err(); err != nil {
+			log.Error("failed to set data to redis", slog.String("error", err.Error()))
+			return nil, err
+		}
+
+		return &ExchangeRateToCurrency{
+			Rate:         exchangerdata.Rate,
+			ToCurrency:   exchangerdata.ToCurrency,
+			FromCurrency: exchangerdata.FromCurrency,
+		}, nil
+	}
+	var rates ExchangeRateToCurrency
+	if err := json.Unmarshal(exchangerrate, &rates); err != nil {
+		log.Error("failed to unmarshal redis data (float64)", slog.String("error", err.Error()))
 		return nil, err
 	}
-	return data, nil
+
+	return &rates, nil
 }
 
 func (s *Service) GetBalance(ctx context.Context, id uuid.UUID) (*models.CurrencyWallet, error) {
@@ -158,14 +192,26 @@ func (s *Service) WalletDepositOrWithDraw(ctx context.Context, id uuid.UUID, cur
 		}
 
 	}()
+
 	data, err := s.repository.DepositOrWithdrawBalance(ctx, id, amount, currency, tx, typedepo)
 	if err != nil {
 		log.Error("failed to deposit balance", slog.String("error", err.Error()))
 		return nil, err
 	}
+
 	if err := s.repository.SetTransaction(ctx, data.WalletID, amount, typedepo, nil, tx); err != nil {
 		log.Error("failed to set balance", slog.String("error", err.Error()))
 		return nil, err
+	}
+	if amount >= 1 {
+		kafkadata, err := json.Marshal(KafkaPayloadNotification{amount, id, data.Balances})
+		if err != nil {
+			log.Error("failed to marshal balances", slog.String("error", err.Error()))
+			return nil, err
+		}
+		if _, err := s.events.CreateEvent(ctx, string(typedepo), string(kafkadata), tx); err != nil {
+			return nil, err
+		}
 	}
 	if err := tx.Commit(ctx); err != nil {
 		log.Error("failed to commit transaction", slog.String("error", err.Error()))
@@ -212,7 +258,16 @@ func (s *Service) CurrencyExchangeWallet(ctx context.Context, userid uuid.UUID, 
 		log.Error("failed to withdraw balance", slog.String("error", err.Error()))
 		return nil, err
 	}
-
+	if to_currency_amount >= 2 {
+		kafkadata, err := json.Marshal(KafkaPayloadNotification{to_currency_amount, userid, depositdata.Balances})
+		if err != nil {
+			log.Error("failed to marshal balances", slog.String("error", err.Error()))
+			return nil, err
+		}
+		if _, err := s.events.CreateEvent(ctx, string(contextkey.OperationTypeWithdraw), string(kafkadata), tx); err != nil {
+			return nil, err
+		}
+	}
 	if err := tx.Commit(ctx); err != nil {
 		log.Error("failed to commit transaction", slog.String("error", err.Error()))
 		return nil, err

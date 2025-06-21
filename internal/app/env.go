@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/Sanchir01/currency-wallet/internal/config"
 	"github.com/Sanchir01/currency-wallet/pkg/db"
+	kafkaclient "github.com/Sanchir01/currency-wallet/pkg/events"
 	"github.com/Sanchir01/currency-wallet/pkg/logger"
 	grpcapp "github.com/Sanchir01/currency-wallet/pkg/server/grpc"
 	walletsv1 "github.com/Sanchir01/wallets-proto/gen/go/wallets"
@@ -16,6 +17,8 @@ type App struct {
 	Lg       *slog.Logger
 	DB       *db.Database
 	Handlers *Handlers
+	Services *Services
+	Kafka    *kafkaclient.Producer
 }
 
 func NewApp(ctx context.Context) (*App, error) {
@@ -33,9 +36,9 @@ func NewApp(ctx context.Context) (*App, error) {
 		cfg.GrpcClients.GRPCExchanger.Retries,
 		walletsv1.NewExchangeServiceClient,
 	)
-
+	kaf, err := kafkaclient.NewProducer(cfg.Kafka.Notification.Broke, cfg.Kafka.Notification.Topic[0], cfg.Kafka.Notification.Retries, ctx)
 	repo := NewRepository(database, l)
-	srv := NewServices(repo, database, l, exchanger)
+	srv := NewServices(repo, database, l, exchanger, kaf)
 	handlers := NewHandlers(srv, l)
 
 	return &App{
@@ -43,5 +46,7 @@ func NewApp(ctx context.Context) (*App, error) {
 		Lg:       l,
 		DB:       database,
 		Handlers: handlers,
+		Services: srv,
+		Kafka:    kaf,
 	}, nil
 }

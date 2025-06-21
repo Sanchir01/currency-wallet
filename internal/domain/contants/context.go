@@ -5,6 +5,7 @@ type ContextKey string
 const UserIDCtxKey ContextKey = "userID"
 
 const ExchangerCurrencyCtxKey string = "exchangerCurrency"
+const ExchangeRateToCurrencyCtxKey string = "exchangeRateToCurrency"
 
 var Currencies = []string{"USD", "EUR", "RUB"}
 

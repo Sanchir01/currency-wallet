@@ -19,9 +19,10 @@ type Config struct {
 	RedisDB     Redis       `yaml:"redis"`
 	DB          DataBase    `yaml:"database"`
 	Prometheus  Prometheus  `yaml:"prometheus"`
+	Kafka       Kafka       `yaml:"kafka"`
 }
 type Kafka struct {
-	Outbox Producer `yaml:"outbox"`
+	Notification Producer `yaml:"notification"`
 }
 
 type Producer struct {

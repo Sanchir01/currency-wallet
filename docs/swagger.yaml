@@ -63,7 +63,20 @@ definitions:
       status:
         type: string
     type: object
-host: localhost:8080
+  wallet.ExchangeRequest:
+    properties:
+      amount:
+        type: number
+      from_currency:
+        type: string
+      to_currency:
+        type: string
+    required:
+    - amount
+    - from_currency
+    - to_currency
+    type: object
+host: localhost:5000
 info:
   contact:
     name: GitHub
@@ -114,6 +127,42 @@ paths:
         required: true
         schema:
           $ref: '#/definitions/wallet.DepositOrWithdrawRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/wallet.DepositOrWithdrawResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - refreshToken: []
+      summary: GetBalanceHandler
+      tags:
+      - wallet
+  /exchange:
+    post:
+      consumes:
+      - application/json
+      description: balance user
+      parameters:
+      - description: deposit body
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/wallet.ExchangeRequest'
       produces:
       - application/json
       responses:
@@ -241,7 +290,7 @@ paths:
       - application/json
       description: balance user
       parameters:
-      - description: deposit body
+      - description: withdraw body
         in: body
         name: input
         required: true

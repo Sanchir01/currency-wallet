@@ -7,7 +7,6 @@ import (
 	httphandlers "github.com/Sanchir01/currency-wallet/internal/http/customiddleware"
 	"github.com/Sanchir01/currency-wallet/pkg/api"
 	"github.com/Sanchir01/currency-wallet/pkg/logger"
-	walletsv1 "github.com/Sanchir01/wallets-proto/gen/go/wallets"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/render"
 	"github.com/go-playground/validator/v10"
@@ -20,7 +19,7 @@ type HandlerWallets interface {
 	GetCurrencyWallets(ctx context.Context) (*models.CurrencyWallet, error)
 	GetBalance(ctx context.Context, id uuid.UUID) (*models.CurrencyWallet, error)
 	WalletDepositOrWithDraw(ctx context.Context, id uuid.UUID, currency string, amount float32, typedepo contextkey.OperationType) (*models.CurrencyWallet, error)
-	GetExchangeRateForCurrency(ctx context.Context, to_currency, from_currency string) (*walletsv1.ExchangeRateResponse, error)
+	GetExchangeRateForCurrency(ctx context.Context, to_currency, from_currency string) (*ExchangeRateToCurrency, error)
 	CurrencyExchangeWallet(ctx context.Context, userid uuid.UUID, to_currency, from_currency string, to_currency_amount, from_currency_amount float32) (*models.CurrencyWallet, error)
 }
 

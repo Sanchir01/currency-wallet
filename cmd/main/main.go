@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 )
 
 // @title 🚀 Currency Wallet
@@ -18,7 +19,7 @@ import (
 // @description This is a sample server seller
 // @termsOfService  http://swagger.io/terms/
 
-// @host localhost:8080
+// @host localhost:5000
 // @BasePath /api/v1
 
 // @securityDefinitions.apikey AccessTokenCookie
@@ -43,7 +44,13 @@ func main() {
 		env.Cfg.HTTPServer.Timeout, env.Cfg.HTTPServer.IdleTimeout)
 	prometheusserver := httpserver.NewHTTPServer(env.Cfg.Prometheus.Host, env.Cfg.Prometheus.Port, env.Cfg.Prometheus.Timeout,
 		env.Cfg.Prometheus.IdleTimeout)
-
+	env.Services.EventService.StartCreateEvent(ctx, 5*time.Second, 10, env.Cfg.Kafka.Notification.Topic[0])
+	defer func() {
+		if err := env.Kafka.Close(); err != nil {
+			env.Lg.Error("Error closing kafka connection")
+			return
+		}
+	}()
 	go func() {
 		if err := serve.Run(httphandlers.StartHTTTPHandlers(env.Handlers, env.Cfg.Domain, env.Lg)); err != nil {
 			if !errors.Is(err, context.Canceled) {

@@ -8,11 +8,11 @@ database:
   max_attempts: 10
 
 kafka:
-  outbox:
+  notification:
     retries: 5
+    group_id: "notification"
     topic:
-      - "order"
-      - "metrics"
+      - "notification"
     brokers:
       - "localhost:9092"
 
