@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/Sanchir01/currency-wallet/internal/app"
 	httphandlers "github.com/Sanchir01/currency-wallet/internal/http"
+	"github.com/Sanchir01/currency-wallet/internal/profiling"
 	httpserver "github.com/Sanchir01/currency-wallet/pkg/server/http"
 	"log"
 	"log/slog"
@@ -45,6 +46,9 @@ func main() {
 	prometheusserver := httpserver.NewHTTPServer(env.Cfg.Prometheus.Host, env.Cfg.Prometheus.Port, env.Cfg.Prometheus.Timeout,
 		env.Cfg.Prometheus.IdleTimeout)
 	env.Services.EventService.StartCreateEvent(ctx, 5*time.Second, 10, env.Cfg.Kafka.Notification.Topic[0])
+	if err := profiling.InitPyroscope(); err != nil {
+		env.Lg.Error("Error initializing profiling: %v", err)
+	}
 	defer func() {
 		if err := env.Kafka.Close(); err != nil {
 			env.Lg.Error("Error closing kafka connection")

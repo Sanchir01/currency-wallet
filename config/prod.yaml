@@ -1,24 +1,24 @@
 env: "development"
 
 database:
-  host: localhost
-  port: "5441"
+  host: db
+  port: "5432"
   user: "postgres"
   dbname: "currency-wallet"
   max_attempts: 10
 
 kafka:
-  outbox:
+  notification:
     retries: 5
+    group_id: "notification"
     topic:
-      - "order"
-      - "metrics"
+      - "notification"
     brokers:
       - "localhost:9092"
 
 redis:
-  host: "localhost"
-  port: "6391"
+  host: "redis"
+  port: "6379"
   password: ""
   dbnumber: 0
 
